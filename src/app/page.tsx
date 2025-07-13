@@ -1,6 +1,5 @@
 
 "use client";
-import Image from "next/image";
 import { useState } from "react";
 import ImageUploadForm from "../components/ImageUploadForm";
 
@@ -45,8 +44,8 @@ export default function Home() {
       }
       const blob = await res.blob();
       setResultUrl(URL.createObjectURL(blob));
-    } catch (e: any) {
-      setError(e.message || "Unknown error");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setIsProcessing(false);
     }
@@ -63,12 +62,14 @@ export default function Home() {
             {originalUrl && (
               <div className="flex flex-col items-center">
                 <span className="text-gray-500 mb-2">Original</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={originalUrl} alt="Original" className="rounded-lg shadow-md max-w-xs max-h-80 border border-gray-200" />
               </div>
             )}
             {resultUrl && (
               <div className="flex flex-col items-center">
                 <span className="text-blue-600 mb-2 font-semibold">Result</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={resultUrl} alt="Result" className="rounded-lg shadow-md max-w-xs max-h-80 border-2 border-blue-300" />
               </div>
             )}

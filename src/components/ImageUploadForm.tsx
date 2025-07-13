@@ -37,6 +37,7 @@ export default function ImageUploadForm({ onProcess, isProcessing }: Props) {
         className="border p-2 rounded"
       />
       {preview && (
+        /* eslint-disable-next-line @next/next/no-img-element */
         <img src={preview} alt="Preview" className="w-full max-h-64 object-contain rounded" />
       )}
       <input

@@ -1,11 +1,9 @@
 
 
-import { spawn } from "child_process";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   const Jimp = (await import("jimp")).default;
-  const REMBG_MODEL_ID = "dandansai/rembg";
   const BG_MODEL_ID = "stabilityai/stable-diffusion-xl-base-1.0"; // text-to-image
   const formData = await req.formData();
   const file = formData.get("file") as File;
@@ -15,36 +13,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing file or prompt" }, { status: 400 });
   }
 
-  // Step 1: Remove background (extract person) using local rembg
+  // Step 1: Remove background using Hugging Face API
   const arrayBuffer = await file.arrayBuffer();
   const inputBuffer = Buffer.from(arrayBuffer);
-  // Update this path to your actual rembg.exe location if needed
-  const rembgPath = "C:\\Users\\rjros\\AppData\\Roaming\\Python\\Python313\\Scripts\\rembg.exe";
-  const rembg = spawn(rembgPath, ["i", "-", "-"]);
+  
+  // Use Hugging Face's background removal model
+  const rembgRes = await fetch("https://api-inference.huggingface.co/models/briaai/RMBG-1.4", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+      "Content-Type": "application/octet-stream"
+    },
+    body: inputBuffer
+  });
 
-  // Pipe input image to rembg stdin
-  rembg.stdin.write(inputBuffer);
-  rembg.stdin.end();
-
-  // Collect output from rembg stdout
-  const outputChunks: Buffer[] = [];
-  for await (const chunk of rembg.stdout) {
-    outputChunks.push(chunk as Buffer);
-  }
-  const rembgOutput = Buffer.concat(outputChunks);
-
-  // Check for errors
-  let rembgError = "";
-  for await (const chunk of rembg.stderr) {
-    rembgError += chunk.toString();
-  }
-  const exitCode: number = await new Promise((resolve) => rembg.on("close", resolve));
-  if (exitCode !== 0 || !rembgOutput.length) {
-    console.error("rembg error:", rembgError);
-    return NextResponse.json({ error: "rembg: " + rembgError }, { status: 500 });
+  if (!rembgRes.ok) {
+    const error = await rembgRes.text();
+    console.error("Background removal error:", error);
+    return NextResponse.json({ error: "Background removal failed: " + error }, { status: rembgRes.status });
   }
 
-  // rembg returns a PNG with transparent background
+  const rembgOutput = Buffer.from(await rembgRes.arrayBuffer());
   const personBase64 = rembgOutput.toString("base64");
 
   // Step 2: Generate new background from prompt
@@ -83,10 +72,8 @@ export async function POST(req: NextRequest) {
   const px = (bgJimp.bitmap.width - pw) / 2;
   const py = (bgJimp.bitmap.height - ph) / 2;
   // Always resize by width, calculate height to preserve aspect ratio
-  const aspect = personJimp.bitmap.width / personJimp.bitmap.height;
   const newWidth = Math.round(pw);
   personJimp.resize(newWidth, Jimp.AUTO);
-  const newHeight = personJimp.bitmap.height;
   bgJimp.composite(personJimp, px, py);
   // Jimp getBuffer as Promise
   const outBuffer = await new Promise<Buffer>((resolve, reject) => {

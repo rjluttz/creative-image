@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "src/app/api/background/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "HUGGINGFACE_API_KEY": "@huggingface_api_key"
+  }
+}
